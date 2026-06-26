@@ -1,0 +1,47 @@
+name: 주간 금 레짐 대시보드 자동배포
+
+on:
+  schedule:
+    # 매주 토요일 08:00 KST (= 금요일 23:00 UTC) — 금요일 종가 반영, 일요일 점검 전 갱신
+    - cron: "0 23 * * 5"
+  workflow_dispatch: {}   # 버튼으로 수동 실행도 가능
+
+permissions:
+  contents: write          # index.html 커밋·푸시용
+
+concurrency:
+  group: gold-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 패키지 설치
+        run: pip install --quiet requests yfinance
+
+      - name: 신호 수집 + 대시보드 생성
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python data/fetch_signals.py
+
+      - name: 변경분만 커밋·푸시 (있을 때만)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "변경 없음 — 배포 건너뜀"
+          else
+            git commit -m "auto: 주간 대시보드 갱신"
+            git push
+            echo "배포 완료 → https://ydk39562055-hub.github.io/gold-regime/"
+          fi

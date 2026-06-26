@@ -1,6 +1,14 @@
-# 기본: 전부 비공개 (개인 분석 노트·키·데이터는 깃에 안 올림)
-*
+# 비공개로 남길 것 (개인 분석 노트·키·로컬 출력물)
+cards/
+review/
+CLAUDE.md
+주간체크.bat
+data/.fred_key
+data/snapshot.md
+__pycache__/
+data/__pycache__/
+*.pyc
 
-# 예외: 공개할 대시보드 화면 하나만 추적
-!index.html
-!.gitignore
+# 공개되는 것: index.html(대시보드 화면), data/fetch_signals.py(수집기),
+#               .github/workflows/(자동배포) — 위에 안 적혀 있으면 추적됨.
+# ⚠ data/fetch_signals.py 에는 키가 없음(키는 .fred_key/시크릿에서만 읽음).
