@@ -170,7 +170,9 @@ def flag_level(fl):
 # ---------------------------------------------------------------------------
 # 폰에서 보는 단일 HTML 대시보드 생성 (데이터 박아서 자체완결)
 # ---------------------------------------------------------------------------
-def build_dashboard(rows_week, rows_month, gold_str, updated):
+def build_dashboard(rows_week, rows_month, gold_str, updated, vals=None):
+    vals = vals or {}
+
     def esc(s):
         return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
@@ -213,6 +215,51 @@ def build_dashboard(rows_week, rows_month, gold_str, updated):
 
     week_cards = cards(rows_week)
     month_cards = cards(rows_month)
+
+    # --- 초보용 '지금 상황 풀이' (자동 지표를 쉬운 말로) ---
+    rr = vals.get("dfii10"); dx = vals.get("dxy"); sp = vals.get("t10y2y")
+    mich = vals.get("mich"); debt = vals.get("debt")
+    reads = []
+    if rr is not None and dx is not None:
+        if rr >= 2.3 and dx >= 103:
+            reads.append(("천장 — 금을 누르는 힘", "warn",
+                f"실질금리({rr:.2f}%)와 달러({dx:.0f})가 둘 다 높습니다. 금을 누르는 힘이 강한 구간이라 조심할 때입니다."))
+        elif rr >= 2.3 or dx >= 103:
+            reads.append(("천장 — 금을 누르는 힘", "warn",
+                f"실질금리({rr:.2f}%)와 달러({dx:.0f}) 중 한쪽이 높습니다. 둘 다 높아지면 금 부담이 커지니 지켜보세요."))
+        else:
+            reads.append(("천장 — 금을 누르는 힘", "good",
+                f"실질금리({rr:.2f}%)도 달러({dx:.0f})도 위협적인 수준은 아닙니다. 지금은 금을 강하게 누르는 힘이 약합니다."))
+    if sp is not None:
+        if sp < 0:
+            reads.append(("경기 신호 — 침체 여부", "warn",
+                f"장단기 금리차가 {sp:.2f}%로 역전(마이너스)됐습니다. 시장이 침체를 예상한다는 강한 신호이고, 보통 연준 금리인하로 이어져 금에 우호적입니다."))
+        else:
+            reads.append(("경기 신호 — 침체 여부", "good",
+                f"장단기 금리차가 +{sp:.2f}%로 아직 정상입니다(마이너스로 역전돼야 침체 신호). 임박한 침체 신호는 없습니다."))
+    if debt is not None:
+        if debt >= 120:
+            msg = (f"정부부채가 경제규모(GDP)의 {debt:.0f}%입니다. 120%를 넘으면 금리를 크게 올릴 때 "
+                   "이자부담이 폭발하는 구조(재정지배)라, 이것이 금 강세를 떠받치는 가장 근본적인 힘입니다.")
+            lvl = "good"
+        else:
+            msg = f"정부부채가 경제규모(GDP)의 {debt:.0f}%로, 아직 재정지배라 할 수준은 아닙니다."
+            lvl = "neutral"
+        if mich is not None:
+            if mich >= 4.6:
+                msg += f" 기대 인플레이션도 {mich:.1f}%로 높아, 물가 기대가 굳을 우려가 있습니다(금엔 우호적이나 주의)."
+            else:
+                msg += f" 기대 인플레이션은 {mich:.1f}% 수준입니다."
+        reads.append(("배경·동력 — 강세의 뿌리", lvl, msg))
+
+    situation_html = "\n    ".join(
+        f'<div class="ind {lv}"><div class="ind-name">{esc(t)}</div><div class="ind-desc">{esc(m)}</div></div>'
+        for t, lv, m in reads)
+
+    def jnum(x):
+        return "null" if x is None else f"{x}"
+    auto_js = (f"var AUTO={{rr:{jnum(rr)},dx:{jnum(dx)},sp:{jnum(sp)},"
+               f"mich:{jnum(mich)},debt:{jnum(debt)}}};")
 
     return f"""<!DOCTYPE html>
 <html lang="ko">
@@ -264,6 +311,12 @@ def build_dashboard(rows_week, rows_month, gold_str, updated):
     margin-bottom:7px; cursor:pointer; font-size:14px;}}
   .check input{{width:22px; height:22px; flex:none; margin-top:1px; accent-color:var(--warn);}}
   .check label.on{{border-color:rgba(224,162,58,.4); background:rgba(224,162,58,.06);}}
+  .form{{margin:8px 12px;}}
+  .frow{{display:flex; align-items:center; gap:10px; margin-bottom:8px; background:var(--surface);
+    border:1px solid var(--border); border-radius:10px; padding:9px 12px;}}
+  .frow span{{flex:1; font-size:13px; color:var(--muted);}}
+  .frow input,.frow select{{width:140px; flex:none; background:var(--surface2); color:var(--text);
+    border:1px solid var(--border); border-radius:8px; padding:8px; font-size:15px; font-family:inherit;}}
   table.mtx{{width:calc(100% - 24px); margin:8px 12px; border-collapse:collapse; font-size:12.5px;}}
   table.mtx th,table.mtx td{{border:1px solid var(--border); padding:7px 8px; text-align:center;}}
   table.mtx th{{background:var(--surface2); color:var(--muted); font-weight:700;}}
@@ -282,6 +335,10 @@ def build_dashboard(rows_week, rows_month, gold_str, updated):
 
 <div class="read {read_lvl}">{esc(read)}</div>
 
+<h2 class="sec">지금 상황 풀이 (자동 지표를 쉬운 말로)</h2>
+<p class="sec-sub">아래 숫자들이 지금 무슨 상황을 가리키는지 초보용으로 풀었습니다. 더 정확한 판단은 맨 아래 '종합 국면 추정'을 보세요.</p>
+    {situation_html}
+
 <h2 class="sec">천장·바닥 신호 (매주 빠르게 움직이는 값)</h2>
 <p class="sec-sub">금을 단기로 누르거나 받치는 힘. 매주 이 카드들만 훑으면 됩니다.</p>
     {week_cards}
@@ -289,6 +346,21 @@ def build_dashboard(rows_week, rows_month, gold_str, updated):
 <h2 class="sec">레짐 배경 (한 달에 한 번 바뀌는 값)</h2>
 <p class="sec-sub">금이 강세 국면인지 약세 국면인지를 가르는 큰 그림. 월간 판정 때 봅니다.</p>
     {month_cards}
+
+<h2 class="sec">분기마다 직접 입력 (자동으로 못 가져오는 값)</h2>
+<p class="sec-sub">아래 네 가지는 무료로는 자동 수집이 안 됩니다. 분기에 한 번, 세계금협회 등에서 보고 직접 적어두면 '종합 국면 추정'이 완성됩니다. 입력값은 이 기기(브라우저)에 저장됩니다.</p>
+<div class="form">
+  <label class="frow"><span>기준 분기</span><input id="m_q" type="text" placeholder="예: 2026 2분기"></label>
+  <label class="frow"><span>중앙은행 분기 순매수 (톤)</span><input id="m_cb" type="number" inputmode="decimal" placeholder="예: 190"></label>
+  <label class="frow"><span>금 상장지수펀드 보유량 (톤)</span><input id="m_etf" type="number" inputmode="decimal" placeholder="예: 4100"></label>
+  <label class="frow"><span>선물 투기 포지션</span><select id="m_cot"><option value="">선택</option><option>가벼움</option><option>중립</option><option>과열</option></select></label>
+  <label class="frow"><span>외환보유고 달러비중 추세</span><select id="m_cofer"><option value="">선택</option><option>내려가는 중</option><option>유지</option><option>올라가는 중</option></select></label>
+</div>
+<div id="m_cards"></div>
+
+<h2 class="sec">종합 국면 추정 (참고용)</h2>
+<p class="sec-sub">자동 지표와 위 입력값을 합쳐 지금 국면을 추정합니다. 어디까지나 참고이고, 최종 판단은 본인이 월간 판정 카드에서 합니다.</p>
+<div id="estimate" class="ind">위 분기 입력값을 채우면 추정이 나타납니다.</div>
 
 <h2 class="sec">이번 주 빠른 판단 (5가지만 확인)</h2>
 <div class="check" id="chk">
@@ -336,6 +408,91 @@ document.querySelectorAll('#chk input').forEach(function(cb){{
     cb.closest('label').classList.toggle('on', cb.checked);
   }});
 }});
+</script>
+
+<script>
+{auto_js}
+(function(){{
+  var KEY='goldManual';
+  var saved={{}};
+  try{{ saved=JSON.parse(localStorage.getItem(KEY)||'{{}}'); }}catch(e){{}}
+  var fields=['m_q','m_cb','m_etf','m_cot','m_cofer'];
+  fields.forEach(function(id){{
+    var el=document.getElementById(id);
+    if(saved[id]!=null) el.value=saved[id];
+    el.addEventListener('input', onChange);
+    el.addEventListener('change', onChange);
+  }});
+  function onChange(){{
+    fields.forEach(function(id){{ saved[id]=document.getElementById(id).value; }});
+    localStorage.setItem(KEY, JSON.stringify(saved));
+    render();
+  }}
+  function num(id){{ var v=parseFloat(document.getElementById(id).value); return isNaN(v)?null:v; }}
+  function esc(s){{ return String(s).replace(/[&<>]/g,function(c){{return {{'&':'&amp;','<':'&lt;','>':'&gt;'}}[c];}}); }}
+  function card(name, lv, desc){{
+    return '<div class="ind '+lv+'"><div class="ind-name">'+esc(name)+'</div><div class="ind-desc">'+esc(desc)+'</div></div>';
+  }}
+  function render(){{
+    var cb=num('m_cb'), etf=num('m_etf');
+    var cot=document.getElementById('m_cot').value;
+    var cofer=document.getElementById('m_cofer').value;
+    var html='';
+    if(cb!=null){{
+      var lv='neutral', t='100~180톤 — 보통입니다.';
+      if(cb<=100){{ lv='warn'; t='분기 100톤 이하(또는 순매도) — 바닥이 약합니다. 두 분기 연속이면 바닥 붕괴로 봅니다.'; }}
+      else if(cb>=180){{ lv='good'; t='180톤 이상 — 하단을 단단히 받칩니다.'; }}
+      html+=card('중앙은행 순매수 '+cb+'톤', lv, t);
+    }}
+    if(etf!=null){{
+      var lv2='neutral', t2='4,000~4,176톤 — 보통입니다.';
+      if(etf>=4176){{ lv2='good'; t2='사상 최고치(4,176톤) 돌파 — 천장을 뚫는 강세 연료입니다.'; }}
+      else if(etf<4000){{ lv2='warn'; t2='4,000톤 아래 — 투자 수요가 약해지는 신호입니다.'; }}
+      html+=card('상장지수펀드 보유 '+etf+'톤', lv2, t2);
+    }}
+    if(cot){{
+      var lv3='neutral', t3='중립입니다.';
+      if(cot==='가벼움'){{ lv3='good'; t3='포지션이 가벼움 — 떨어질 때 팔 물량이 적어 방어력이 좋습니다(대신 끌어올릴 힘도 약함).'; }}
+      else if(cot==='과열'){{ lv3='warn'; t3='과열 — 단기 조정을 경계하세요.'; }}
+      html+=card('투기 포지션: '+cot, lv3, t3);
+    }}
+    if(cofer){{
+      var lv4='neutral', t4='유지 — 큰 변화 없음.';
+      if(cofer==='내려가는 중'){{ lv4='good'; t4='달러 비중 하락 — 탈달러가 진행돼 금에 구조적으로 우호적입니다.'; }}
+      else if(cofer==='올라가는 중'){{ lv4='warn'; t4='달러 비중 상승 — 탈달러 흐름이 되돌려지는지 주의하세요.'; }}
+      html+=card('달러비중 추세: '+cofer, lv4, t4);
+    }}
+    document.getElementById('m_cards').innerHTML=html;
+    estimate(cb);
+  }}
+  function estimate(cb){{
+    var box=document.getElementById('estimate');
+    var q1=null, q1txt='';
+    if(AUTO.rr!=null && AUTO.mich!=null){{
+      if(AUTO.rr>=2.3 && AUTO.mich<3){{ q1='yes'; q1txt='연준이 금리로 잡는 쪽 (실질금리가 높고 물가 기대가 낮음)'; }}
+      else {{ q1='no'; q1txt='금리로는 못 잡는 쪽 (실질금리가 눌렸거나 물가 기대가 높음)'; }}
+    }}
+    if(q1==null){{ box.className='ind'; box.innerHTML='자동 지표가 부족해 추정할 수 없습니다.'; return; }}
+    var q2=null, q2txt='';
+    if(cb!=null){{
+      if(cb<=100){{ q2='no'; q2txt='바닥 약함 (중앙은행 매수 부진)'; }}
+      else {{ q2='yes'; q2txt='바닥 살아있음 (중앙은행 매수 유지)'; }}
+    }}
+    if(q2==null){{
+      box.className='ind neutral';
+      box.innerHTML='<div class="ind-name">절반 완성</div><div class="ind-desc">자동 지표상 질문1은 \\u2018'+esc(q1txt)+'\\u2019. 여기에 위의 <b>중앙은행 순매수(톤)</b>를 입력하면 국면 추정이 완성됩니다.</div>';
+      return;
+    }}
+    var regime, lv;
+    if(q1==='no'&&q2==='yes'){{ regime='금 강세 — 분할매수·보유에 무게'; lv='good'; }}
+    else if(q1==='no'&&q2==='no'){{ regime='바닥 약화 — 신중, 비중 점검'; lv='warn'; }}
+    else if(q1==='yes'&&q2==='yes'){{ regime='천장 강화 — 관망·박스권 대응'; lv='neutral'; }}
+    else {{ regime='금 약세 — 보수적·헷지'; lv='warn'; }}
+    box.className='ind '+lv;
+    box.innerHTML='<div class="ind-name">추정 국면: '+esc(regime)+'</div><div class="ind-desc">근거 — 질문1(금리로 잡나): '+esc(q1txt)+' · 질문2(바닥 살았나): '+esc(q2txt)+'. 자동 추정이니 참고만 하고, 최종은 월간 판정 카드에서 확정하세요.</div>';
+  }}
+  render();
+}})();
 </script>
 </body>
 </html>"""
@@ -428,7 +585,9 @@ def main():
     kst = datetime.datetime.now(datetime.timezone.utc).astimezone(
         datetime.timezone(datetime.timedelta(hours=9)))
     updated = kst.strftime("%Y-%m-%d %H:%M") + " KST"
-    html = build_dashboard(rows_week, rows_month, fmt(gold), updated)
+    vals = {"dfii10": dfii10, "dxy": dxy, "t10y2y": t10y2y,
+            "mich": mich, "debt": debt, "gold": gold}
+    html = build_dashboard(rows_week, rows_month, fmt(gold), updated, vals)
     dash_path = os.path.abspath(os.path.join(HERE, "..", "index.html"))
     with open(dash_path, "w", encoding="utf-8") as f:
         f.write(html)
