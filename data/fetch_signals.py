@@ -398,7 +398,10 @@ def main():
 
     # --- 폰용 단일 HTML 대시보드 (프로젝트 루트에 index.html 로 생성) ---
     # index.html 인 이유: 깃허브 페이지 배포 시 루트 URL로 바로 열림.
-    updated = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    # 갱신시각은 한국시간(KST)으로 고정 — 로컬이든 Actions(UTC)든 동일하게 표기.
+    kst = datetime.datetime.now(datetime.timezone.utc).astimezone(
+        datetime.timezone(datetime.timedelta(hours=9)))
+    updated = kst.strftime("%Y-%m-%d %H:%M") + " KST"
     html = build_dashboard(rows_week, rows_month, fmt(gold), updated)
     dash_path = os.path.abspath(os.path.join(HERE, "..", "index.html"))
     with open(dash_path, "w", encoding="utf-8") as f:
