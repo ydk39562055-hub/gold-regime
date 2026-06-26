@@ -174,23 +174,41 @@ def build_dashboard(rows_week, rows_month, gold_str, updated):
     def esc(s):
         return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
+    # 각 지표가 "왜 중요한가" 한 줄 설명 (코드로 찾음). 화면에서 숫자만 보고 헷갈리지 않게.
+    DESC = {
+        "GC=F": "금 1온스의 현재 가격. 손절선·목표선과 비교하는 기준입니다.",
+        "DFII10": "물가상승분을 뺀 '진짜 금리'. 이게 오르면 이자 주는 국채가 매력적이라, 이자 없는 금이 눌립니다. 금을 단기로 누르는 가장 큰 힘.",
+        "DX-Y.NYB": "달러가 다른 통화 대비 얼마나 강한지. 달러가 강하면 외국인에게 금이 비싸지고, 달러 자체가 금과 경쟁하는 안전자산이라 금에 불리합니다.",
+        "T10Y2Y": "10년 금리에서 2년 금리를 뺀 값. 마이너스(역전)가 되면 시장이 경기침체를 예상한다는 강한 신호 → 연준이 금리를 내릴 압력 → 금에 우호적.",
+        "DGS10": "10년 만기 국채의 표면금리. 5.5~6%를 넘어서면 금에 있던 돈이 국채로 빠져나갈 수 있습니다.",
+        "XAU/XAG": "금값을 은값으로 나눈 비율. 평균은 60 안팎이고, 85~90을 넘으면 은이 유독 약하다는 뜻 = 경기침체 초기 신호.",
+        "MICH": "사람들이 예상하는 1년 뒤 물가(미시간대 설문). 기대가 높아지면 미리 사재고 임금을 올려 실제 물가를 끌어올립니다(자기실현).",
+        "PCEPILFE": "연준이 가장 중시하는 물가지표(식품·에너지를 뺀 근원 물가). 연준의 진짜 판단 근거입니다.",
+        "GFDEGDQ188S": "정부 빚이 한 해 경제규모(GDP)의 몇 %인지. 120%를 넘으면 금리를 크게 올릴 때 이자부담이 폭발해서 못 올립니다(재정지배) = 금 강세의 뿌리.",
+    }
+
     def cards(rows):
         out = []
         for name, code, val, date, fl in rows:
             lvl = flag_level(fl)
             flag_html = f'<span class="flag {lvl}">{esc(fl)}</span>' if fl else ""
+            desc = DESC.get(code, "")
+            desc_html = f'<div class="ind-desc">{esc(desc)}</div>' if desc else ""
             out.append(f"""<div class="ind {lvl}">
       <div class="ind-top"><span class="ind-name">{esc(name)}</span><span class="ind-val">{esc(val)}</span></div>
-      <div class="ind-meta"><span class="ind-src">{esc(code)} · {esc(date or '—')}</span>{flag_html}</div>
+      {desc_html}
+      <div class="ind-meta"><span class="ind-src">자료: {esc(code)} · {esc(date or '—')}</span>{flag_html}</div>
     </div>""")
         return "\n    ".join(out)
 
     warn_count = sum(1 for r in (rows_week + rows_month) if "⚠" in r[4])
     if warn_count == 0:
-        read = "임계값 경고 없음 — 레짐 유지가 기본값."
+        read = ("지금 임계값을 넘은 지표가 없습니다. 특별한 변화가 없다는 뜻이라, "
+                "이번 주는 기존 판단(레짐)을 그대로 유지하면 됩니다.")
         read_lvl = "good"
     else:
-        read = f"임계값 경고 {warn_count}개 — 월간 카드에서 의미 점검."
+        read = (f"임계값을 넘은 지표가 {warn_count}개 있습니다. 아래에서 주의 표시(⚠️)가 붙은 "
+                "카드를 확인하고, 월간 판정 카드에서 그게 무슨 의미인지 따져 보세요.")
         read_lvl = "warn"
 
     week_cards = cards(rows_week)
@@ -224,7 +242,8 @@ def build_dashboard(rows_week, rows_month, gold_str, updated):
     background:var(--surface); border:1px solid var(--border); font-size:14px; font-weight:600;}}
   .read.warn{{border-color:rgba(224,162,58,.5); background:rgba(224,162,58,.08); color:#f0c266;}}
   .read.good{{border-color:rgba(74,143,214,.4); background:rgba(74,143,214,.07);}}
-  h2.sec{{font-size:13px; color:var(--muted); margin:20px 16px 8px; font-weight:700; letter-spacing:.3px;}}
+  h2.sec{{font-size:14px; color:var(--text); margin:22px 16px 4px; font-weight:800; letter-spacing:.2px;}}
+  .sec-sub{{font-size:12px; color:var(--muted); margin:0 16px 8px; line-height:1.5;}}
   .ind{{margin:8px 12px; padding:11px 13px; background:var(--surface);
     border:1px solid var(--border); border-left:4px solid var(--border); border-radius:10px;}}
   .ind.warn{{border-left-color:var(--warn);}}
@@ -232,7 +251,8 @@ def build_dashboard(rows_week, rows_month, gold_str, updated):
   .ind-top{{display:flex; justify-content:space-between; align-items:baseline; gap:8px;}}
   .ind-name{{font-size:14px; color:var(--muted);}}
   .ind-val{{font-size:20px; font-weight:800;}}
-  .ind-meta{{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:5px;}}
+  .ind-desc{{font-size:12.5px; color:#aeb4bf; margin-top:6px; line-height:1.55;}}
+  .ind-meta{{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:7px;}}
   .ind-src{{font-size:11px; color:var(--muted2);}}
   .flag{{font-size:11px; font-weight:700; padding:2px 7px; border-radius:999px;}}
   .flag.warn{{background:rgba(224,162,58,.16); color:var(--warn);}}
@@ -262,34 +282,40 @@ def build_dashboard(rows_week, rows_month, gold_str, updated):
 
 <div class="read {read_lvl}">{esc(read)}</div>
 
-<h2 class="sec">주간 지표 (빠르게 움직임)</h2>
+<h2 class="sec">천장·바닥 신호 (매주 빠르게 움직이는 값)</h2>
+<p class="sec-sub">금을 단기로 누르거나 받치는 힘. 매주 이 카드들만 훑으면 됩니다.</p>
     {week_cards}
 
-<h2 class="sec">월간 / 분기 지표 (FRED)</h2>
+<h2 class="sec">레짐 배경 (한 달에 한 번 바뀌는 값)</h2>
+<p class="sec-sub">금이 강세 국면인지 약세 국면인지를 가르는 큰 그림. 월간 판정 때 봅니다.</p>
     {month_cards}
 
-<h2 class="sec">이번 주 빠른 판단 (5개)</h2>
+<h2 class="sec">이번 주 빠른 판단 (5가지만 확인)</h2>
 <div class="check" id="chk">
-  <label><input type="checkbox" data-k="1"><span>금가 vs 손절선 $4,180 / $3,900 확인</span></label>
-  <label><input type="checkbox" data-k="2"><span>실질금리 2.30%↑? · 달러 103↑? (동시면 강한 악재)</span></label>
-  <label><input type="checkbox" data-k="3"><span>스프레드 역전(음수)? — 완만화는 신호 아님</span></label>
-  <label><input type="checkbox" data-k="4"><span>반증조건(PART 4) 점등 늘었나?</span></label>
-  <label><input type="checkbox" data-k="5"><span>→ 레짐 유지 / 눌림목 / 과열 / ⚠️월간 당김 중 결정</span></label>
+  <label><input type="checkbox" data-k="1"><span>금 현재가가 손절선(4,180달러)이나 리스크 점검선(3,900달러) 아래로 내려갔는지 확인한다.</span></label>
+  <label><input type="checkbox" data-k="2"><span>10년 실질금리가 2.30%를 넘었는지, 달러지수가 103을 넘었는지 본다. 두 가지가 동시에 일어나면 금에 강한 악재다.</span></label>
+  <label><input type="checkbox" data-k="3"><span>장단기 금리차가 마이너스(역전)로 돌아섰는지 본다. 그냥 좁아지기만 한 것은 신호가 아니고, 마이너스가 돼야 진짜 침체 신호다.</span></label>
+  <label><input type="checkbox" data-k="4"><span>'내 판단이 틀렸다는 신호(반증조건)'가 지난주보다 더 켜졌는지 센다. 2개 이상이면 월간 정밀판정을 앞당긴다.</span></label>
+  <label><input type="checkbox" data-k="5"><span>위를 종합해 이번 주를 한마디로 정한다 — 국면 유지 / 눌림목(매수 기회) / 과열(조정 경계) / 월간 판정 당기기 중 하나.</span></label>
 </div>
 
-<h2 class="sec">레짐 매트릭스 (월간 판정용)</h2>
+<h2 class="sec">레짐(국면) 판정표 — 월간에 사용</h2>
+<p class="sec-sub">두 가지 질문으로 지금이 어떤 국면인지 가립니다.<br>
+질문1: 연준이 인플레이션을 '금리로' 잡고 있나? &nbsp; 질문2: 중앙은행 매수라는 바닥이 살아있나?</p>
 <table class="mtx">
-  <tr><th>Q1 금리로 잡나</th><th>Q2 바닥 살았나</th><th>레짐</th></tr>
-  <tr><td>NO</td><td>YES</td><td class="bull">금 강세 (분할매수·보유)</td></tr>
-  <tr><td>NO</td><td>NO</td><td>바닥약화 (신중)</td></tr>
-  <tr><td>YES</td><td>YES</td><td>천장강화 (관망·박스)</td></tr>
-  <tr><td>YES</td><td>NO</td><td class="bear">금 약세 (보수·헷지)</td></tr>
+  <tr><th>질문1<br>금리로 잡나</th><th>질문2<br>바닥 살았나</th><th>국면과 대응</th></tr>
+  <tr><td>아니오</td><td>예</td><td class="bull">금 강세 — 분할매수·보유</td></tr>
+  <tr><td>아니오</td><td>아니오</td><td>바닥 약화 — 신중, 비중 점검</td></tr>
+  <tr><td>예</td><td>예</td><td>천장 강화 — 관망·박스권 대응</td></tr>
+  <tr><td>예</td><td>아니오</td><td class="bear">금 약세 — 보수적·헷지</td></tr>
 </table>
 
 <div class="note">
-  <b>주간은 레짐을 안 바꾼다.</b> 반증 2개+ 켜지면 월간 정밀판정을 당긴다.<br>
-  자동수집 안 됨(분기 손수): 중앙은행 톤(WGC) · ETF 톤 · COT · COFER 달러비중.<br>
-  이 파일은 <b>python data/fetch_signals.py</b> 실행 때마다 새 숫자로 덮어쓴다.
+  <b>주간 점검에서는 국면(레짐)을 바꾸지 않습니다.</b> 단기 위치(눌림목인지 과열인지)만 봅니다.
+  다만 '내 판단이 틀렸다는 신호(반증조건)'가 2개 이상 켜지면, 다음 달을 기다리지 말고 바로 월간 정밀판정을 당겨서 다시 봅니다.<br><br>
+  <b>이 화면이 자동으로 못 가져오는 값</b>(분기마다 손으로 확인): 중앙은행의 분기 금 순매수량(톤), 금 상장지수펀드 보유량(톤),
+  투기 포지션(미국 상품선물거래위원회 자료), 각국 외환보유고의 달러 비중(국제통화기금 자료).<br><br>
+  이 화면은 매주 토요일 오전 자동으로, 또는 컴퓨터에서 <b>주간체크</b>를 실행할 때마다 최신 숫자로 새로 만들어집니다.
 </div>
 
 <script>
@@ -346,17 +372,17 @@ def main():
     gs_ratio = (gold / silver) if (gold and silver) else None
 
     rows_week = [
-        ("금 현재가($)", "GC=F", fmt(gold), d8, ""),
-        ("실질금리 DFII10(%)", "DFII10", fmt(dfii10), d1, flag("DFII10", dfii10)),
-        ("달러 DXY", "DX-Y.NYB", fmt(dxy), d7, flag("DXY", dxy)),
-        ("스프레드 T10Y2Y(%p)", "T10Y2Y", fmt(t10y2y), d2, flag("T10Y2Y", t10y2y)),
-        ("명목 10년 DGS10(%)", "DGS10", fmt(dgs10), d3, flag("DGS10", dgs10)),
-        ("금-은 비율", "XAU/XAG", fmt(gs_ratio, 1), d8, flag("GS_RATIO", gs_ratio)),
+        ("금 현재가 (달러/온스)", "GC=F", fmt(gold), d8, ""),
+        ("10년 실질금리 (%)", "DFII10", fmt(dfii10), d1, flag("DFII10", dfii10)),
+        ("달러지수 (강달러 정도)", "DX-Y.NYB", fmt(dxy), d7, flag("DXY", dxy)),
+        ("장단기 금리차 (%포인트)", "T10Y2Y", fmt(t10y2y), d2, flag("T10Y2Y", t10y2y)),
+        ("10년 국채 명목금리 (%)", "DGS10", fmt(dgs10), d3, flag("DGS10", dgs10)),
+        ("금·은 가격비율", "XAU/XAG", fmt(gs_ratio, 1), d8, flag("GS_RATIO", gs_ratio)),
     ]
     rows_month = [
-        ("기대인플레 MICH(%)", "MICH", fmt(mich, 1), d4, flag("MICH", mich)),
-        ("근원 PCE(지수)", "PCEPILFE", fmt(pce), d5, ""),
-        ("부채/GDP(%)", "GFDEGDQ188S", fmt(debt, 1), d6, flag("DEBT_GDP", debt)),
+        ("기대 인플레이션 1년 (%)", "MICH", fmt(mich, 1), d4, flag("MICH", mich)),
+        ("근원 개인소비지출 물가지수", "PCEPILFE", fmt(pce), d5, ""),
+        ("정부부채 ÷ GDP 비율 (%)", "GFDEGDQ188S", fmt(debt, 1), d6, flag("DEBT_GDP", debt)),
     ]
 
     def table(rows):
